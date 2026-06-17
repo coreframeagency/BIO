@@ -1,0 +1,23 @@
+import { NextFunction, Request, Response } from 'express';
+import { ZodError } from 'zod';
+import { logger } from '../lib/logger';
+import { errorResponse } from '../types';
+
+export function notFoundHandler(_req: Request, res: Response): void {
+  res.status(404).json(errorResponse('Route not found'));
+}
+
+export function errorHandler(
+  err: Error,
+  _req: Request,
+  res: Response,
+  _next: NextFunction
+): void {
+  if (err instanceof ZodError) {
+    res.status(400).json(errorResponse(err.errors.map((e) => e.message).join(', ')));
+    return;
+  }
+
+  logger.error({ err }, 'Unhandled error');
+  res.status(500).json(errorResponse('Internal server error'));
+}

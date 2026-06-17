@@ -1,0 +1,615 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  PARENT
+  TEACHER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  TRIALING
+  PAST_DUE
+}
+
+enum SubscriptionInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum QuestionType {
+  MCQ
+  MULTIPLE_SELECT
+  SHORT_ANSWER
+  LONG_ANSWER
+  TRUE_FALSE
+  FILL_BLANK
+  LABEL_DIAGRAM
+  DATA_ANALYSIS
+  CALCULATION
+  MATCHING
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum VisualStatus {
+  NOT_GENERATED
+  GENERATING
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum PaperType {
+  EXAM_PAPER
+  MARK_SCHEME
+  SPECIMEN
+}
+
+enum AttemptResult {
+  CORRECT
+  INCORRECT
+  PARTIAL
+  SELF_MARKED
+}
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String
+  role           Role
+  firstName      String
+  lastName       String
+  avatarUrl      String?
+  isVerified     Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  studentProfile     StudentProfile?
+  parentProfile      ParentProfile?
+  teacherProfile     TeacherProfile?
+  adminProfile       AdminProfile?
+  flashcardAttempts  FlashcardAttempt[]
+  questionsCreated   Question[]
+  pastPaperQuestions PastPaperQuestion[]
+  questionAttempts   QuestionAttempt[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model StudentProfile {
+  id               String              @id @default(cuid())
+  userId           String              @unique
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progress         LessonProgress[]
+  paperAttempts    PaperAttempt[]
+  subscriptions    Subscription[]
+  parentLinks      ParentStudentLink[]
+  teacherLinks     TeacherStudentLink[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model ParentProfile {
+  id           String              @id @default(cuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentLinks ParentStudentLink[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model TeacherProfile {
+  id           String               @id @default(cuid())
+  userId       String               @unique
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio          String?
+  isApproved   Boolean              @default(false)
+  approvedAt   DateTime?
+  approvedById String?
+  schoolLinks  TeacherSchoolLink[]
+  lessons      Lesson[]
+  pastPapers   PastPaper[]
+  studentLinks TeacherStudentLink[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model AdminProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model School {
+  id           String              @id @default(cuid())
+  name         String
+  country      String
+  city         String?
+  logoUrl      String?
+  isActive     Boolean             @default(true)
+  teacherLinks TeacherSchoolLink[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+}
+
+model ParentStudentLink {
+  id               String         @id @default(cuid())
+  parentProfileId  String
+  studentProfileId String
+  parentProfile    ParentProfile  @relation(fields: [parentProfileId], references: [id])
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@unique([parentProfileId, studentProfileId])
+}
+
+model TeacherStudentLink {
+  id               String         @id @default(cuid())
+  teacherProfileId String
+  studentProfileId String
+  teacherProfile   TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@unique([teacherProfileId, studentProfileId])
+}
+
+model TeacherSchoolLink {
+  id               String         @id @default(cuid())
+  teacherProfileId String
+  schoolId         String
+  teacherProfile   TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+  school           School         @relation(fields: [schoolId], references: [id])
+  createdAt        DateTime       @default(now())
+
+  @@unique([teacherProfileId, schoolId])
+}
+
+model ExamBoard {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  slug       String     @unique
+  logoUrl    String?
+  country    String     @default("UK")
+  isActive   Boolean    @default(true)
+  categories Category[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([slug])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  examBoardId String
+  examBoard   ExamBoard @relation(fields: [examBoardId], references: [id])
+  name        String
+  slug        String
+  description String?
+  order       Int
+  isActive    Boolean   @default(true)
+  grades      Grade[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([examBoardId, slug])
+  @@index([examBoardId])
+}
+
+model Grade {
+  id         String    @id @default(cuid())
+  categoryId String
+  category   Category  @relation(fields: [categoryId], references: [id])
+  name       String
+  slug       String
+  order      Int
+  isActive   Boolean   @default(true)
+  subjects   Subject[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+}
+
+model Subject {
+  id            String          @id @default(cuid())
+  gradeId       String
+  grade         Grade           @relation(fields: [gradeId], references: [id])
+  name          String
+  slug          String
+  description   String?
+  color         String?
+  iconUrl       String?
+  isActive      Boolean         @default(true)
+  comingSoon    Boolean         @default(false)
+  units         Unit[]
+  questions     Question[]
+  pastPapers    PastPaper[]
+  subscriptions Subscription[]
+  pricing       SubjectPricing?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([gradeId, slug])
+  @@index([gradeId])
+}
+
+model Unit {
+  id          String           @id @default(cuid())
+  subjectId   String
+  subject     Subject          @relation(fields: [subjectId], references: [id])
+  name        String
+  slug        String
+  description String?
+  order       Int
+  isActive    Boolean          @default(true)
+  lessonLinks LessonUnitLink[]
+  questions   Question[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([subjectId, slug])
+  @@index([subjectId])
+}
+
+model Lesson {
+  id                 String                   @id @default(cuid())
+  teacherProfileId   String
+  teacherProfile     TeacherProfile           @relation(fields: [teacherProfileId], references: [id])
+  title              String
+  slug               String
+  description        String?
+  learningObjectives String[]
+  estimatedMinutes   Int                      @default(30)
+  status             ContentStatus            @default(DRAFT)
+  notesHtml          String?                  @db.Text
+  notesRawText       String?                  @db.Text
+  visualStatus       VisualStatus             @default(NOT_GENERATED)
+  visualHtml         String?                  @db.Text
+  visualScript       String?                  @db.Text
+  visualGeneratedAt  DateTime?
+  visualApprovedAt   DateTime?
+  unitLinks          LessonUnitLink[]
+  practiceQuestions  Question[]
+  pastPaperQuestions PastPaperQuestion[]
+  paperQuestionLinks LessonPaperQuestionLink[]
+  progress           LessonProgress[]
+  versions           LessonVersion[]
+  flashcards         Flashcard[]
+  publishedAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([teacherProfileId])
+  @@index([status])
+}
+
+model Flashcard {
+  id        String             @id @default(cuid())
+  lessonId  String
+  lesson    Lesson             @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  front     String
+  back      String
+  order     Int                @default(0)
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  attempts  FlashcardAttempt[]
+
+  @@index([lessonId])
+}
+
+model FlashcardAttempt {
+  id          String    @id @default(cuid())
+  flashcardId String
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  result      String
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([flashcardId])
+}
+
+model LessonUnitLink {
+  id       String @id @default(cuid())
+  lessonId String
+  unitId   String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, unitId])
+  @@index([lessonId])
+  @@index([unitId])
+}
+
+model LessonVersion {
+  id            String        @id @default(cuid())
+  lessonId      String
+  lesson        Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  notesHtml     String?       @db.Text
+  visualHtml    String?       @db.Text
+  visualScript  String?       @db.Text
+  status        ContentStatus
+  savedById     String
+  changeNote    String?
+  createdAt     DateTime      @default(now())
+
+  @@unique([lessonId, versionNumber])
+  @@index([lessonId])
+}
+
+model Question {
+  id                    String            @id @default(cuid())
+  lessonId              String?
+  lesson                Lesson?           @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  unitId                String?
+  unit                  Unit?             @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  subjectId             String?
+  subject               Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  type                  QuestionType
+  status                QuestionStatus    @default(DRAFT)
+  difficulty            Difficulty        @default(MEDIUM)
+  marks                 Int               @default(1)
+  order                 Int               @default(0)
+  questionText          String            @db.Text
+  questionHtml          String?           @db.Text
+  questionImageUrl      String?
+  questionImagePublicId String?
+  hintText              String?
+  explanation           String?           @db.Text
+  explanationHtml       String?           @db.Text
+  modelAnswer           String?           @db.Text
+  modelAnswerHtml       String?           @db.Text
+  timerSeconds          Int?
+  tags                  String[]
+  examBoard             String?
+  examYear              Int?
+  paperNumber           Int?
+  mcqOptions            Json?
+  matchingPairs         Json?
+  fillBlanks            Json?
+  tableData             Json?
+  createdById           String
+  createdBy             User              @relation(fields: [createdById], references: [id])
+  attempts              QuestionAttempt[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([lessonId])
+  @@index([subjectId])
+  @@index([type])
+}
+
+model PastPaper {
+  id               String          @id @default(cuid())
+  subjectId        String
+  subject          Subject         @relation(fields: [subjectId], references: [id])
+  teacherProfileId String
+  teacherProfile   TeacherProfile  @relation(fields: [teacherProfileId], references: [id])
+  title            String
+  year             Int
+  month            String?
+  paperNumber      Int?
+  type             PaperType       @default(EXAM_PAPER)
+  status           ContentStatus   @default(DRAFT)
+  pdfUrl           String
+  pdfPublicId      String?
+  pdfSizeBytes     Int?
+  pageCount        Int?
+  paperQuestions   PaperQuestion[]
+  pastPaperQuestions PastPaperQuestion[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([subjectId])
+  @@index([year])
+}
+
+model PaperQuestion {
+  id               String                    @id @default(cuid())
+  pastPaperId      String
+  pastPaper        PastPaper                 @relation(fields: [pastPaperId], references: [id], onDelete: Cascade)
+  questionNumber   String
+  marks            Int
+  questionText     String                    @db.Text
+  questionImageUrl String?
+  modelAnswer      String?                   @db.Text
+  markSchemeNotes  String?                   @db.Text
+  lessonLinks      LessonPaperQuestionLink[]
+  attempts         PaperAttempt[]
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@index([pastPaperId])
+}
+
+model PastPaperQuestion {
+  id             String         @id @default(cuid())
+  lessonId       String?
+  lesson         Lesson?        @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  pastPaperId    String?
+  pastPaper      PastPaper?     @relation(fields: [pastPaperId], references: [id], onDelete: SetNull)
+  type           QuestionType
+  status         QuestionStatus @default(DRAFT)
+  difficulty     Difficulty     @default(MEDIUM)
+  marks          Int            @default(1)
+  order          Int            @default(0)
+  questionText   String         @db.Text
+  modelAnswer    String?        @db.Text
+  explanation    String?        @db.Text
+  hintText       String?
+  mcqOptions     Json?
+  fillBlanks     Json?
+  tableData      Json?
+  year           Int?
+  session        String?
+  paperNumber    Int?
+  questionNumber Int?
+  createdById    String
+  createdBy      User           @relation(fields: [createdById], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([lessonId])
+  @@index([pastPaperId])
+  @@index([createdById])
+}
+
+model LessonPaperQuestionLink {
+  id              String        @id @default(cuid())
+  lessonId        String
+  paperQuestionId String
+  lesson          Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  paperQuestion   PaperQuestion @relation(fields: [paperQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, paperQuestionId])
+  @@index([lessonId])
+  @@index([paperQuestionId])
+}
+
+model LessonProgress {
+  id               String         @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id])
+  lessonId         String
+  lesson           Lesson         @relation(fields: [lessonId], references: [id])
+  isComplete       Boolean        @default(false)
+  completedAt      DateTime?
+  totalTimeSeconds Int            @default(0)
+  lastAccessedAt   DateTime?
+  visualWatched    Boolean        @default(false)
+  visualWatchedAt  DateTime?
+  studentNotes     String?        @db.Text
+  bestScore        Int?
+  latestScore      Int?
+  attemptCount     Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([studentProfileId, lessonId])
+  @@index([studentProfileId])
+  @@index([lessonId])
+}
+
+model QuestionAttempt {
+  id            String   @id @default(cuid())
+  questionId    String
+  question      Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentAnswer String   @db.Text
+  isCorrect     Boolean?
+  marksAwarded  Int?
+  maxMarks      Int?
+  feedback      String?  @db.Text
+  timeTaken     Int?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([questionId])
+}
+
+model PaperAttempt {
+  id               String         @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id])
+  paperQuestionId  String
+  paperQuestion    PaperQuestion  @relation(fields: [paperQuestionId], references: [id])
+  studentAnswer    String         @db.Text
+  result           AttemptResult
+  marksAwarded     Int            @default(0)
+  selfMarkRating   Int?
+  attemptedAt      DateTime       @default(now())
+
+  @@index([studentProfileId])
+  @@index([paperQuestionId])
+}
+
+model Subscription {
+  id                   String               @id @default(cuid())
+  studentProfileId     String
+  studentProfile       StudentProfile       @relation(fields: [studentProfileId], references: [id])
+  subjectId            String
+  subject              Subject              @relation(fields: [subjectId], references: [id])
+  status               SubscriptionStatus
+  interval             SubscriptionInterval
+  stripeCustomerId     String?
+  stripeSubscriptionId String?              @unique
+  stripePriceId        String?
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean              @default(false)
+  cancelledAt          DateTime?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@unique([studentProfileId, subjectId])
+  @@index([studentProfileId])
+  @@index([subjectId])
+  @@index([stripeSubscriptionId])
+}
+
+model SubjectPricing {
+  id                   String   @id @default(cuid())
+  subjectId            String   @unique
+  subject              Subject  @relation(fields: [subjectId], references: [id])
+  monthlyPriceCents    Int
+  yearlyPriceCents     Int
+  currency             String   @default("GBP")
+  stripePriceIdMonthly String?
+  stripePriceIdYearly  String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String    @db.Text
+  targetRole  Role?
+  isActive    Boolean   @default(true)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

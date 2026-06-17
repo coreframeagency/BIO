@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 93.75%;
+  }
+
+  body {
+    @apply bg-ui-bg font-sans text-brand-black antialiased;
+  }
+}
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-enter {
+  animation: pageEnter 0.2s ease;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.flashcard {
+  perspective: 1000px;
+}
+
+.flashcard-inner {
+  position: relative;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+  min-height: 280px;
+}
+
+.flashcard-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+}
+
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+  .mobile-full {
+    width: 100% !important;
+  }
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+}
+
+/* ── WYSIWYG Editor ── */
+.wysiwyg-content { outline: none; font-size: 0.9375rem; line-height: 1.75; color: #1D1D1B; }
+.wysiwyg-content h1 { font-family: 'Sora', serif; font-size: 1.75rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: #1D1D1B; }
+.wysiwyg-content h2 { font-family: 'Sora', serif; font-size: 1.35rem; font-weight: 600; margin: 1rem 0 0.4rem; color: #1D1D1B; }
+.wysiwyg-content h3 { font-family: 'Sora', serif; font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.3rem; color: #1D1D1B; }
+.wysiwyg-content p { margin: 0.25rem 0; }
+.wysiwyg-content strong { font-weight: 700; }
+.wysiwyg-content em { font-style: italic; }
+.wysiwyg-content u { text-decoration: underline; }
+.wysiwyg-content s { text-decoration: line-through; }
+.wysiwyg-content mark { background: #fef08a; border-radius: 2px; padding: 0 2px; }
+.wysiwyg-content ul { list-style: disc; padding-left: 1.5rem; margin: 0.4rem 0; }
+.wysiwyg-content ol { list-style: decimal; padding-left: 1.5rem; margin: 0.4rem 0; }
+.wysiwyg-content li { margin: 0.15rem 0; }
+.wysiwyg-content blockquote { border-left: 4px solid #245E55; background: #f0f7f6; margin: 0.75rem 0; padding: 0.6rem 1rem; border-radius: 0 8px 8px 0; font-style: normal; color: #1D1D1B; }
+.wysiwyg-content code { background: #f1efea; border-radius: 4px; padding: 1px 5px; font-family: monospace; font-size: 0.875rem; }
+.wysiwyg-content pre { background: #1D1D1B; color: #EAE4DA; border-radius: 8px; padding: 1rem; overflow-x: auto; font-family: monospace; font-size: 0.875rem; margin: 0.75rem 0; }
+.wysiwyg-content pre code { background: none; padding: 0; color: inherit; }
+.wysiwyg-content hr { border: none; border-top: 2px solid #e5e2dc; margin: 1rem 0; }
+.wysiwyg-content sub { vertical-align: sub; font-size: 0.75em; }
+.wysiwyg-content sup { vertical-align: super; font-size: 0.75em; }
+.wysiwyg-content table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.9rem; }
+.wysiwyg-content th { background: #245E55; color: white; font-weight: 600; padding: 8px 12px; text-align: left; border: 1px solid #1a4a42; }
+.wysiwyg-content td { padding: 7px 12px; border: 1px solid #e5e2dc; vertical-align: top; }
+.wysiwyg-content tr:nth-child(even) td { background: #f8f7f4; }
+.wysiwyg-content .selectedCell { background: #e6f0ee !important; }
+.wysiwyg-content .ProseMirror-focused { outline: none; }
+.wysiwyg-content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #a0998e; pointer-events: none; float: left; height: 0; }
