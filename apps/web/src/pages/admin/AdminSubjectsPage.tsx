@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
@@ -32,6 +32,9 @@ function slugify(text: string) {
 export default function AdminSubjectsPage() {
   const queryClient = useQueryClient();
   const [addModal, setAddModal] = useState(false);
+  const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(null);
+  const [newUnitName, setNewUnitName] = useState('');
+  const [creatingUnit, setCreatingUnit] = useState(false);
   const [toast, setToast] = useState('');
   const [form, setForm] = useState({
     name: '',
@@ -112,6 +115,61 @@ export default function AdminSubjectsPage() {
         queryKey: ['admin-subjects-list'],
       });
     },
+  });
+
+  const { data: subjectUnits = [], refetch: refetchUnits } = useQuery({
+    queryKey: ['admin-units', expandedSubjectId],
+    queryFn: async () => {
+      if (!expandedSubjectId) return [];
+      const res = await apiFetch<{
+        id: string;
+        name: string;
+        order: number;
+        isActive: boolean;
+        _count: { lessonLinks: number };
+      }[]>(`/units?subjectId=${expandedSubjectId}`);
+      return res.data ?? [];
+    },
+    enabled: !!expandedSubjectId,
+  });
+
+  const createUnitMutation = useMutation({
+    mutationFn: async (subjectId: string) => {
+      if (!newUnitName.trim()) return;
+      setCreatingUnit(true);
+      const res = await apiFetch('/units', {
+        method: 'POST',
+        body: JSON.stringify({
+          subjectId,
+          name: newUnitName.trim(),
+          slug: newUnitName.trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, ''),
+          order: subjectUnits.length + 1,
+          isActive: true,
+        }),
+      });
+      if (!res.ok) throw new Error(res.error ?? 'Failed');
+    },
+    onSuccess: () => {
+      setNewUnitName('');
+      setCreatingUnit(false);
+      void refetchUnits();
+    },
+    onError: () => {
+      setCreatingUnit(false);
+    },
+  });
+
+  const deleteUnitMutation = useMutation({
+    mutationFn: async (unitId: string) => {
+      const res = await apiFetch(`/units/${unitId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error(res.error ?? 'Failed');
+    },
+    onSuccess: () => void refetchUnits(),
   });
 
   const addSubject = useMutation({
@@ -196,71 +254,154 @@ export default function AdminSubjectsPage() {
                 </tr>
               ) : (
                 subjects.map((s) => (
-                  <tr key={s.id}
-                    className="border-b border-ui-border last:border-0">
-                    <td className="px-4 py-3 font-medium text-brand-black">
-                      {s.name}
-                    </td>
-                    <td className="px-4 py-3 text-ui-muted">
-                      {s.grade.category.examBoard.name}
-                    </td>
-                    <td className="px-4 py-3 text-ui-muted">
-                      {s.grade.category.name}
-                    </td>
-                    <td className="px-4 py-3 text-ui-muted">
-                      {s.grade.name}
-                    </td>
-                    <td className="px-4 py-3">
-                      {s.comingSoon ? (
-                        <span className="rounded-full bg-amber-100
-                          px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                          Coming soon
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-brand-green/10
-                          px-2.5 py-0.5 text-xs font-semibold text-brand-green">
-                          Available
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        disabled={toggleSubject.isPending}
-                        onClick={() => toggleSubject.mutate({
-                          id: s.id,
-                          comingSoon: !s.comingSoon,
-                        })}
-                        className={[
-                          'rounded-lg px-3 py-1 text-xs font-semibold',
-                          'transition hover:opacity-90 disabled:opacity-50',
-                          s.comingSoon
-                            ? 'bg-brand-green text-white'
-                            : 'bg-amber-100 text-amber-700',
-                        ].join(' ')}
-                      >
-                        {s.comingSoon ? 'Make available' : 'Set coming soon'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm(
-                            `Remove ${s.name}?
+                  <Fragment key={s.id}>
+                    <tr className="border-b border-ui-border last:border-0">
+                      <td className="px-4 py-3 font-medium text-brand-black">
+                        {s.name}
+                      </td>
+                      <td className="px-4 py-3 text-ui-muted">
+                        {s.grade.category.examBoard.name}
+                      </td>
+                      <td className="px-4 py-3 text-ui-muted">
+                        {s.grade.category.name}
+                      </td>
+                      <td className="px-4 py-3 text-ui-muted">
+                        {s.grade.name}
+                      </td>
+                      <td className="px-4 py-3">
+                        {s.comingSoon ? (
+                          <span className="rounded-full bg-amber-100
+                            px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                            Coming soon
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-brand-green/10
+                            px-2.5 py-0.5 text-xs font-semibold text-brand-green">
+                            Available
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedSubjectId((prev) =>
+                              prev === s.id ? null : s.id
+                            );
+                            setNewUnitName('');
+                          }}
+                          className="mr-2 rounded-lg border border-ui-border
+                            px-3 py-1 text-xs font-semibold text-brand-black
+                            hover:bg-ui-subtle"
+                        >
+                          {expandedSubjectId === s.id ? 'Hide Units' : 'Manage Units'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={toggleSubject.isPending}
+                          onClick={() => toggleSubject.mutate({
+                            id: s.id,
+                            comingSoon: !s.comingSoon,
+                          })}
+                          className={[
+                            'rounded-lg px-3 py-1 text-xs font-semibold',
+                            'transition hover:opacity-90 disabled:opacity-50',
+                            s.comingSoon
+                              ? 'bg-brand-green text-white'
+                              : 'bg-amber-100 text-amber-700',
+                          ].join(' ')}
+                        >
+                          {s.comingSoon ? 'Make available' : 'Set coming soon'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(
+                              `Remove ${s.name}?
 It will be hidden from the site.`
-                          )) {
-                            removeSubject.mutate(s.id);
-                          }
-                        }}
-                        disabled={removeSubject.isPending}
-                        className="ml-2 rounded-lg p-1.5 text-ui-muted
-                          hover:bg-red-50 hover:text-brand-red
-                          disabled:opacity-50"
-                        title="Remove subject"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
+                            )) {
+                              removeSubject.mutate(s.id);
+                            }
+                          }}
+                          disabled={removeSubject.isPending}
+                          className="ml-2 rounded-lg p-1.5 text-ui-muted
+                            hover:bg-red-50 hover:text-brand-red
+                            disabled:opacity-50"
+                          title="Remove subject"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedSubjectId === s.id && (
+                      <tr key={`${s.id}-units`} className="border-b border-ui-border">
+                        <td colSpan={6} className="p-0">
+                          <div className="border-t border-ui-border bg-ui-subtle px-6 py-4">
+                            <p className="mb-3 text-sm font-semibold text-brand-black">
+                              Units for this subject
+                            </p>
+
+                            {subjectUnits.length === 0 && (
+                              <p className="mb-3 text-sm text-ui-muted">
+                                No units yet — create the first one below.
+                              </p>
+                            )}
+
+                            <div className="mb-3 space-y-2">
+                              {subjectUnits.map((unit) => (
+                                <div
+                                  key={unit.id}
+                                  className="flex items-center justify-between rounded-xl border border-ui-border bg-white px-4 py-2"
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-brand-black">
+                                      {unit.name}
+                                    </p>
+                                    <p className="text-xs text-ui-muted">
+                                      {unit._count.lessonLinks} lessons
+                                    </p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteUnitMutation.mutate(unit.id)}
+                                    className="text-xs text-red-500 hover:text-red-700"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="e.g. Unit 1 — Cells and Organisation"
+                                value={newUnitName}
+                                onChange={(e) => setNewUnitName(e.target.value)}
+                                className="flex-1 rounded-xl border border-ui-border px-3 py-2 text-sm focus:border-brand-green focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                disabled={
+                                  !newUnitName.trim() ||
+                                  createUnitMutation.isPending ||
+                                  creatingUnit
+                                }
+                                onClick={() =>
+                                  createUnitMutation.mutate(expandedSubjectId!)
+                                }
+                                className="rounded-xl bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                              >
+                                {createUnitMutation.isPending || creatingUnit
+                                  ? 'Adding...'
+                                  : '+ Add Unit'}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))
               )}
             </tbody>

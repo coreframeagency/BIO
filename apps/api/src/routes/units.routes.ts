@@ -7,8 +7,8 @@ const router = Router();
 
 router.get('/', controller.listUnits);
 router.get('/:boardSlug/:subjectSlug/:gradeSlug/:unitSlug', controller.getUnit);
-router.post('/', authenticate, requireRole('ADMIN'), controller.createUnit);
-router.patch('/:id', authenticate, requireRole('ADMIN'), controller.updateUnit);
-router.delete('/:id', authenticate, requireRole('ADMIN'), controller.deleteUnit);
+router.post('/', authenticate, requireRole('ADMIN', 'TEACHER'), controller.createUnit);
+router.patch('/:id', authenticate, requireRole('ADMIN', 'TEACHER'), controller.updateUnit);
+router.delete('/:id', authenticate, requireRole('ADMIN', 'TEACHER'), controller.deleteUnit);
 
 export default router;

@@ -320,6 +320,8 @@ export default function LessonEditorPage() {
   const [ppqEditor, setPpqEditor] = useState<PpqEditorState>(emptyPpqEditor());
   const [isRejecting, setIsRejecting] = useState(false);
   const [publishStatus, setPublishStatus] = useState('DRAFT');
+  const [newUnitName, setNewUnitName] = useState('');
+  const [creatingUnit, setCreatingUnit] = useState(false);
 
   const { messages, isStreaming, error: streamError, startStream } = useSSE();
 
@@ -412,6 +414,31 @@ export default function LessonEditorPage() {
   const unlockTabs = useCallback(() => {
     setVisitedTabs((prev) => new Set([...prev, 'notes', 'visual', 'practice', 'pastpaper', 'publish']));
   }, []);
+
+  const handleCreateUnit = async () => {
+    if (!newUnitName.trim() || !form.subjectId) return;
+    setCreatingUnit(true);
+    const res = await apiFetch<{ id: string; name: string }>('/units', {
+      method: 'POST',
+      body: JSON.stringify({
+        subjectId: form.subjectId,
+        name: newUnitName.trim(),
+        slug: newUnitName.trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, ''),
+        order: 1,
+        isActive: true,
+      }),
+    });
+    setCreatingUnit(false);
+    if (res.ok) {
+      setNewUnitName('');
+      await queryClient.invalidateQueries({
+        queryKey: ['units-by-subject', form.subjectId],
+      });
+    }
+  };
 
   const createLessonMutation = useMutation({
     mutationFn: async () => {
@@ -743,6 +770,45 @@ export default function LessonEditorPage() {
                   ))}
                 </div>
               </div>
+
+              {form.subjectId && unitsForSubject.length === 0 && !lessonId && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-800">
+                    No units exist for this subject yet
+                  </p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Create a unit to organise your lessons (e.g. &quot;Unit 1 — Characteristics of Living
+                    Organisms&quot;). Students browse lessons by unit.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Unit name..."
+                      value={newUnitName}
+                      onChange={(e) => setNewUnitName(e.target.value)}
+                      className="flex-1 rounded-xl border border-ui-border px-3 py-2 text-sm focus:border-brand-green focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={!newUnitName.trim() || creatingUnit}
+                      onClick={() => void handleCreateUnit()}
+                      className="rounded-xl bg-brand-green px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {creatingUnit ? 'Creating...' : '+ Create'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {form.subjectId && unitsForSubject.length > 0 && (
+                <div className="rounded-xl border border-brand-green/30 bg-brand-green/5 p-3">
+                  <p className="text-xs font-medium text-brand-green">
+                    ✓ {unitsForSubject.length} unit
+                    {unitsForSubject.length > 1 ? 's' : ''} found — lesson will be added to
+                    &quot;{unitsForSubject[0].name}&quot;
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-end">
                 {!lessonId ? (

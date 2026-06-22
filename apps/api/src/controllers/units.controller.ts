@@ -212,6 +212,25 @@ export async function createUnit(req: Request, res: Response) {
 
   const data = createUnitSchema.parse(req.body);
 
+  if (req.user!.role === 'TEACHER') {
+    const teacherUser = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { metadata: true },
+    });
+    const meta = teacherUser?.metadata as Record<string, unknown> | null;
+    const allowedSubjectIds = meta?.allowedSubjectIds as string[] | undefined;
+    if (
+      allowedSubjectIds &&
+      allowedSubjectIds.length > 0 &&
+      !allowedSubjectIds.includes(data.subjectId)
+    ) {
+      res.status(403).json(
+        errorResponse('You are not assigned to this subject.')
+      );
+      return;
+    }
+  }
+
   const unit = await prisma.unit.create({ data });
 
   res.status(201).json(successResponse(unit));
