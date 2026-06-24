@@ -394,8 +394,12 @@ export default function LessonEditorPage() {
     return allSubjects.filter((s) => allowed.has(s.id));
   }, [allSubjects, teacherMeta?.allowedSubjectIds]);
 
+  const formInitialized = useRef(false);
+
   useEffect(() => {
     if (!lesson) return;
+    if (formInitialized.current) return;
+    formInitialized.current = true;
     setForm({
       title: lesson.title ?? '',
       slug: lesson.slug ?? '',
@@ -771,7 +775,7 @@ export default function LessonEditorPage() {
                 </div>
               </div>
 
-              {form.subjectId && unitsForSubject.length === 0 && !lessonId && (
+              {form.subjectId && unitsForSubject.length === 0 && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-semibold text-amber-800">
                     No units exist for this subject yet
